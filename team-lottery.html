@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2859d9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>팀 제비뽑기</title>
+  <style>
+    :root { --ink:#19212d; --muted:#667085; --paper:#f7f8fb; --line:#dde2ea; --brand:#2859d9; --brand-dark:#1c46b2; --success:#18794e; --danger:#b42318; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--ink); background:var(--paper); font-family:ui-rounded, "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; }
+    main { width:min(760px, calc(100% - 32px)); margin:0 auto; padding:36px 0 48px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+    h1 { margin:0; font-size:clamp(1.6rem, 5vw, 2.25rem); letter-spacing:-.045em; }
+    h2 { margin:0; font-size:1.15rem; letter-spacing:-.025em; }
+    p { color:var(--muted); line-height:1.55; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:22px; padding:24px; box-shadow:0 10px 30px rgba(25,33,45,.06); }
+    .setup-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:22px 0; }
+    label { display:grid; gap:8px; color:#344054; font-weight:700; font-size:.92rem; }
+    input { width:100%; min-height:48px; border:1px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; color:var(--ink); background:#fff; }
+    input:focus { outline:3px solid rgba(40,89,217,.18); border-color:var(--brand); }
+    .name-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin:16px 0 24px; }
+    button { appearance:none; min-height:48px; border:0; border-radius:13px; padding:11px 18px; font:inherit; font-weight:750; cursor:pointer; transition:transform .15s, background .15s, opacity .15s; }
+    button:hover { transform:translateY(-1px); } button:active { transform:translateY(1px); }
+    .primary { width:100%; color:white; background:var(--brand); font-size:1.05rem; } .primary:hover { background:var(--brand-dark); }
+    .secondary { color:#344054; background:#edf1f7; } .danger { color:var(--danger); background:#fff0ef; }
+    .hidden { display:none !important; }
+    .status { display:flex; justify-content:space-between; align-items:baseline; gap:14px; margin-bottom:18px; }
+    .count { font-weight:750; color:var(--muted); white-space:nowrap; }
+    .teams { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+    .team { min-height:108px; padding:18px; background:#fff; border:1px solid var(--line); border-radius:18px; display:flex; flex-direction:column; justify-content:space-between; }
+    .team.full { opacity:.48; background:#f2f4f7; }
+    .team-name { font-weight:800; font-size:1.1rem; overflow-wrap:anywhere; }
+    .slots { color:var(--muted); font-size:.9rem; } .slots strong { color:var(--success); font-size:1rem; }
+    .team.full .slots strong { color:var(--muted); }
+    .draw-area { margin:26px 0 16px; text-align:center; }
+    .draw { min-height:150px; width:100%; color:#fff; background:linear-gradient(135deg, #2859d9, #6748d9); font-size:clamp(1.35rem, 5vw, 1.75rem); border-radius:22px; box-shadow:0 12px 22px rgba(40,89,217,.22); }
+    .draw:disabled { cursor:not-allowed; opacity:.55; box-shadow:none; transform:none; }
+    .result { margin-top:18px; padding:18px; border-radius:16px; color:var(--ink); background:#e8f7ee; border:1px solid #bce9cc; }
+    .result b { display:block; margin-top:4px; font-size:1.7rem; color:var(--success); letter-spacing:-.04em; }
+    .footer-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+    .notice { min-height:24px; color:var(--danger); font-weight:700; font-size:.9rem; text-align:center; }
+    @media (max-width:520px) { main { width:min(100% - 24px, 760px); padding-top:20px; } .card{padding:18px;} .setup-grid,.name-grid,.teams { grid-template-columns:1fr; } header { align-items:flex-start; flex-direction:column; margin-bottom:20px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>팀 제비뽑기</h1>
+      <button class="secondary" id="settingsButton" type="button">설정</button>
+    </header>
+
+    <section class="card" id="setupScreen">
+      <h2>게임 설정</h2>
+      <p>팀 수와 팀별 정원을 정한 뒤 시작하세요. 참가자는 버튼 한 번으로, 남은 자리 중 무작위 팀을 배정받습니다.</p>
+      <p class="text-small" id="offlineStatus">홈 화면에 추가하면 인터넷 없이도 사용할 수 있습니다.</p>
+      <div class="setup-grid">
+        <label>팀 수 <input id="teamCount" type="number" min="2" max="12" value="4" inputmode="numeric"></label>
+        <label>팀당 인원 <input id="capacity" type="number" min="1" max="100" value="8" inputmode="numeric"></label>
+      </div>
+      <h2>팀 이름</h2>
+      <div class="name-grid" id="nameFields"></div>
+      <button class="primary" id="startButton" type="button">제비뽑기 시작</button>
+    </section>
+
+    <section class="hidden" id="drawScreen" aria-live="polite">
+      <div class="status"><h2>현재 팀 현황</h2><span class="count" id="totalCount"></span></div>
+      <div class="teams" id="teams"></div>
+      <div class="draw-area">
+        <button class="draw" id="drawButton" type="button">제비 뽑기</button>
+        <div class="notice" id="notice"></div>
+        <div class="result hidden" id="result">당신의 팀은<b id="resultTeam"></b>입니다!</div>
+      </div>
+      <div class="footer-actions">
+        <button class="danger" id="resetButton" type="button">처음부터 다시</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const setupScreen = document.getElementById('setupScreen');
+    const drawScreen = document.getElementById('drawScreen');
+    const teamCountInput = document.getElementById('teamCount');
+    const capacityInput = document.getElementById('capacity');
+    const nameFields = document.getElementById('nameFields');
+    const teamsElement = document.getElementById('teams');
+    const totalCount = document.getElementById('totalCount');
+    const drawButton = document.getElementById('drawButton');
+    const notice = document.getElementById('notice');
+    const result = document.getElementById('result');
+    const resultTeam = document.getElementById('resultTeam');
+    let game = null;
+
+    function numberInRange(value, min, max, fallback) {
+      const n = Number.parseInt(value, 10);
+      return Number.isInteger(n) ? Math.min(max, Math.max(min, n)) : fallback;
+    }
+    function renderNameFields() {
+      const count = numberInRange(teamCountInput.value, 2, 12, 4);
+      const oldNames = [...nameFields.querySelectorAll('input')].map(input => input.value);
+      nameFields.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const label = document.createElement('label');
+        label.textContent = `팀 ${i + 1}`;
+        const input = document.createElement('input');
+        input.type = 'text'; input.maxLength = 24; input.value = oldNames[i] || `${i + 1}팀`;
+        label.appendChild(input); nameFields.appendChild(label);
+      }
+    }
+    function persist() { localStorage.setItem('teamLotteryGame', JSON.stringify(game)); }
+    function renderGame() {
+      const used = game.teams.reduce((sum, team) => sum + team.assigned, 0);
+      const total = game.teams.reduce((sum, team) => sum + team.capacity, 0);
+      totalCount.textContent = `${used} / ${total}명 배정`;
+      teamsElement.innerHTML = '';
+      game.teams.forEach(team => {
+        const item = document.createElement('article');
+        item.className = `team${team.assigned >= team.capacity ? ' full' : ''}`;
+        item.innerHTML = `<span class="team-name"></span><span class="slots"><strong>${team.capacity - team.assigned}자리</strong> 남음 · ${team.assigned}/${team.capacity}명</span>`;
+        item.querySelector('.team-name').textContent = team.name;
+        teamsElement.appendChild(item);
+      });
+      const full = used >= total;
+      drawButton.disabled = full;
+      drawButton.textContent = full ? '모든 팀 배정 완료' : '제비 뽑기';
+      notice.textContent = full ? '모든 팀의 자리가 찼습니다.' : '';
+    }
+    function showDrawScreen() { setupScreen.classList.add('hidden'); drawScreen.classList.remove('hidden'); document.getElementById('settingsButton').classList.remove('hidden'); renderGame(); }
+    function startGame() {
+      const count = numberInRange(teamCountInput.value, 2, 12, 4);
+      const capacity = numberInRange(capacityInput.value, 1, 100, 8);
+      const inputs = [...nameFields.querySelectorAll('input')];
+      game = { teams: Array.from({length: count}, (_, index) => ({ name: (inputs[index]?.value || '').trim() || `${index + 1}팀`, capacity, assigned: 0 })) };
+      persist(); result.classList.add('hidden'); showDrawScreen();
+    }
+    function drawTeam() {
+      result.classList.add('hidden'); notice.textContent = '';
+      // 남은 모든 "자리"를 같은 확률로 추첨해, 마지막까지 각 팀 정원을 정확히 지킵니다.
+      const slots = [];
+      game.teams.forEach((team, index) => { for (let i = team.assigned; i < team.capacity; i++) slots.push(index); });
+      if (!slots.length) { renderGame(); return; }
+      const chosen = slots[Math.floor(Math.random() * slots.length)];
+      game.teams[chosen].assigned += 1;
+      persist(); renderGame(); resultTeam.textContent = game.teams[chosen].name; result.classList.remove('hidden');
+      drawButton.textContent = game.teams.every(team => team.assigned >= team.capacity) ? '모든 팀 배정 완료' : '다음 사람 제비 뽑기';
+      result.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    document.getElementById('startButton').addEventListener('click', startGame);
+    teamCountInput.addEventListener('input', renderNameFields);
+    drawButton.addEventListener('click', drawTeam);
+    document.getElementById('settingsButton').addEventListener('click', () => { drawScreen.classList.add('hidden'); setupScreen.classList.remove('hidden'); document.getElementById('settingsButton').classList.add('hidden'); });
+    document.getElementById('resetButton').addEventListener('click', () => { if (confirm('현재 배정 결과를 모두 지우고 새로 시작할까요?')) { localStorage.removeItem('teamLotteryGame'); game = null; drawScreen.classList.add('hidden'); setupScreen.classList.remove('hidden'); document.getElementById('settingsButton').classList.add('hidden'); } });
+    const saved = localStorage.getItem('teamLotteryGame');
+    renderNameFields();
+    try { if (saved) { game = JSON.parse(saved); if (game?.teams?.length) showDrawScreen(); } } catch (_) { localStorage.removeItem('teamLotteryGame'); }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').then(() => {
+        document.getElementById('offlineStatus').textContent = '오프라인 사용 준비가 완료되었습니다.';
+      }).catch(() => {
+        document.getElementById('offlineStatus').textContent = '홈 화면에 추가하려면 HTTPS 주소로 열어 주세요.';
+      });
+    }
+  </script>
+</body>
+</html>
